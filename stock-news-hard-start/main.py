@@ -1,37 +1,67 @@
+import requests
+import os
+from twilio.rest import Client
 STOCK = "TSLA"
 COMPANY_NAME = "Tesla Inc"
 
+account_sid = "AC2d558aa54b39737b6fcc9f5164a70b90"
+auth_token = "9ed6d33ccfbb27d2b864f6dacb56829f"
+api_key = "51f0a9294ce0915e91fe8a699ba5f905"
+fr_phone = +13345092276
+to_phone = +306970548924
+
 STOCK_ENDPOINT = "https://www.alphavantage.co/query"
 NEWS_ENDPOINT = "https://newsapi.org/v2/everything"
+api_key_news = "a3a3be95e3d9416b921dee371a449e99"
+api_key_stocks = "FNG1UD53HZM0TSUX"
+param_news = {
+    "q": COMPANY_NAME,
+    "apiKey": api_key_news,
+    #"country": "us",
+    #"category": "business",
+}
+param_stocks = {
+    "apikey": api_key_stocks,
+    "function": "TIME_SERIES_DAILY_ADJUSTED",
+    "symbol": STOCK,
+}
 
+new_response = requests.get(url=NEWS_ENDPOINT, params=param_news)
+new_response.raise_for_status()
+news = new_response.json()["articles"][:3]
+titles = []
+descriptions = []
+for i in news:
+    titl = i["title"]
+    desc = i["description"]
+    titles.append(titl)
+    descriptions.append(desc)
 
-## STEP 1: Use https://newsapi.org/docs/endpoints/everything
-# When STOCK price increase/decreases by 5% between yesterday and the day before yesterday then print("Get News").
-#HINT 1: Get the closing price for yesterday and the day before yesterday. Find the positive difference between the two prices. e.g. 40 - 20 = -20, but the positive difference is 20.
-#HINT 2: Work out the value of 5% of yerstday's closing stock price. 
+stock_response = requests.get(url=STOCK_ENDPOINT, params=param_stocks)
+stock_response.raise_for_status()
+data = stock_response.json()
+data_list = [value for (key, value) in data.items()]
+yesterday_closing = float(data_list[0]["4. close"])
+before_yesterday = float(data_list[1]["4. close"])
+emoji_up = "🔺"
+emoji = "🔻"
 
+if yesterday_closing < before_yesterday:
+    emoji = emoji_up
 
+difference = abs(yesterday_closing-before_yesterday)
+percentage = difference % yesterday_closing
+message = f"{STOCK}: {emoji}%{round(percentage)}\nHeadline: {titles[0]}\nBrief: {descriptions[0]}\n" \
+          f"{STOCK}: {emoji}%{round(percentage)}\nHeadline: {titles[0]}\nBrief: {descriptions[1]}" \
+          f"{STOCK}: {emoji}%{round(percentage)}\nHeadline: {titles[0]}\nBrief: {descriptions[2]}"
 
-## STEP 2: Use https://newsapi.org/docs/endpoints/everything
-# Instead of printing ("Get News"), actually fetch the first 3 articles for the COMPANY_NAME. 
-#HINT 1: Think about using the Python Slice Operator
+if percentage > 5:
+    client = Client(account_sid, auth_token)
+    message = client.messages.create(
+        body=message,
+        from_=fr_phone,
+        to=to_phone
+    )
+    print(message.status)
 
-
-
-## STEP 3: Use twilio.com/docs/sms/quickstart/python
-# Send a separate message with each article's title and description to your phone number. 
-#HINT 1: Consider using a List Comprehension.
-
-
-
-#Optional: Format the SMS message like this: 
-"""
-TSLA: 🔺2%
-Headline: Were Hedge Funds Right About Piling Into Tesla Inc. (TSLA)?. 
-Brief: We at Insider Monkey have gone over 821 13F filings that hedge funds and prominent investors are required to file by the SEC The 13F filings show the funds' and investors' portfolio positions as of March 31st, near the height of the coronavirus market crash.
-or
-"TSLA: 🔻5%
-Headline: Were Hedge Funds Right About Piling Into Tesla Inc. (TSLA)?. 
-Brief: We at Insider Monkey have gone over 821 13F filings that hedge funds and prominent investors are required to file by the SEC The 13F filings show the funds' and investors' portfolio positions as of March 31st, near the height of the coronavirus market crash.
-"""
 
